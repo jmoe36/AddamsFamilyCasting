@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Addams Family Casting Conflict Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Crimson Text',Georgia,serif;background:#0f0e0c;color:#d4cfc4;padding:1.5rem;min-height:100vh}
+h1{font-family:'UnifrakturMaguntia',cursive;font-size:28px;font-weight:400;color:#c9a84c;margin-bottom:0.25rem;letter-spacing:1px;text-shadow:0 0 20px rgba(201,168,76,0.3)}
+.subtitle{font-size:13px;color:#6b6560;margin-bottom:1.5rem;font-style:italic}
+.tabs{display:flex;gap:0;margin-bottom:1.5rem;border-bottom:1px solid #2a2520}
+.tab{padding:8px 18px;font-size:14px;font-family:'Crimson Text',serif;cursor:pointer;border:none;background:none;color:#6b6560;border-bottom:2px solid transparent;margin-bottom:-1px;letter-spacing:0.5px}
+.tab.active{color:#c9a84c;border-bottom:2px solid #c9a84c}
+.tab:hover{color:#d4cfc4}
+.refresh-btn{padding:6px 14px;font-size:12px;font-family:'Crimson Text',serif;border:1px solid #2a2520;border-radius:3px;cursor:pointer;background:#1a1814;color:#6b6560;margin-left:auto;letter-spacing:0.5px}
+.refresh-btn:hover{color:#c9a84c;border-color:#c9a84c}
+.view{display:none}.view.active{display:block}
+.last-updated{font-size:11px;color:#4a4540;margin-bottom:1rem;font-style:italic}
+.error{padding:1rem;background:#1f0a0a;color:#c0392b;border:1px solid #3a1010;border-radius:4px;font-size:13px;margin-bottom:1rem}
+.loading{padding:2rem;text-align:center;color:#6b6560;font-size:15px;font-style:italic}
+
+/* Summary cards */
+.summary-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:1.5rem}
+.sum-card{background:#1a1814;border:1px solid #2a2520;border-radius:4px;padding:10px 14px}
+.sum-label{font-size:11px;color:#6b6560;margin-bottom:2px;letter-spacing:0.5px;text-transform:uppercase}
+.sum-val{font-size:24px;font-weight:600;color:#d4cfc4}
+.sum-val.green{color:#5a8a4a}
+.sum-val.amber{color:#c9a84c}
+.sum-val.red{color:#8a3a2a}
+.sum-val.blue{color:#3a6a8a}
+
+/* Search + filter */
+.search-bar{display:flex;gap:8px;margin-bottom:1rem;align-items:center;flex-wrap:wrap}
+.search-bar input{flex:1;min-width:160px;padding:8px 12px;border:1px solid #2a2520;border-radius:3px;background:#1a1814;color:#d4cfc4;font-size:14px;font-family:'Crimson Text',serif}
+.search-bar input::placeholder{color:#4a4540}
+.search-bar input:focus{outline:none;border-color:#c9a84c}
+.filter-btns{display:flex;gap:6px;flex-wrap:wrap}
+.fbtn{padding:5px 12px;font-size:12px;font-family:'Crimson Text',serif;border:1px solid #2a2520;border-radius:3px;cursor:pointer;background:#1a1814;color:#6b6560;letter-spacing:0.3px}
+.fbtn.active{background:#c9a84c;color:#0f0e0c;border-color:#c9a84c;font-weight:600}
+.fbtn:hover:not(.active){border-color:#6b6560;color:#d4cfc4}
+
+/* Badges */
+.badge{display:inline-block;padding:2px 8px;border-radius:2px;font-size:12px;font-weight:600;letter-spacing:0.3px}
+.badge-none{background:#1a2a1a;color:#5a8a4a;border:1px solid #2a3a2a}
+.badge-minor{background:#2a2010;color:#c9a84c;border:1px solid #3a3010}
+.badge-major{background:#2a1010;color:#c05a4a;border:1px solid #3a1818}
+.badge-tbd{background:#10182a;color:#3a6a8a;border:1px solid #18283a}
+
+/* DESKTOP TABLE */
+.tbl-wrap{border:1px solid #2a2520;border-radius:4px;overflow:hidden;max-height:600px;overflow-y:auto}
+.tbl-wrap::-webkit-scrollbar{width:6px}
+.tbl-wrap::-webkit-scrollbar-track{background:#1a1814}
+.tbl-wrap::-webkit-scrollbar-thumb{background:#2a2520;border-radius:3px}
+table{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
+col.c-name{width:150px}col.c-age{width:45px}col.c-level{width:105px}col.c-conflict{width:auto}col.c-roles{width:195px}
+thead tr{position:sticky;top:0;z-index:10}
+th{text-align:left;padding:10px 12px;border-bottom:1px solid #2a2520;color:#6b6560;font-weight:600;font-size:11px;background:#161410;text-transform:uppercase;letter-spacing:0.8px}
+td{padding:8px 12px;border-bottom:1px solid #1e1c18;vertical-align:top;color:#d4cfc4;word-wrap:break-word}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#1a1814}
+.conflict-text{color:#8a8480;font-size:13px;line-height:1.5}
+
+/* MOBILE CARDS */
+.card-list{display:flex;flex-direction:column;gap:8px}
+.person-card{background:#1a1814;border:1px solid #2a2520;border-radius:4px;padding:12px 14px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.card-name{font-size:16px;font-weight:600;color:#d4cfc4}
+.card-age{font-size:12px;color:#4a4540;margin-left:6px}
+.card-body{font-size:13px;color:#8a8480;line-height:1.5}
+.card-label{font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:#4a4540;margin-top:8px;margin-bottom:2px}
+.card-roles{font-size:13px;color:#a09890}
+
+/* Show/hide based on screen width */
+@media (max-width: 600px) {
+  .tbl-wrap{display:none}
+  .card-list{display:flex}
+  h1{font-size:24px}
+}
+@media (min-width: 601px) {
+  .tbl-wrap{display:block}
+  .card-list{display:none}
+}
+
+/* CALENDAR */
+.legend{display:flex;gap:14px;margin-bottom:1rem;font-size:12px;color:#6b6560;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px}
+.legend-dot{width:10px;height:10px;border-radius:2px}
+.cal-month{margin-bottom:2rem}
+.cal-month-title{font-size:16px;font-weight:600;color:#c9a84c;margin-bottom:8px;letter-spacing:0.5px}
+.cal-header{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px}
+.cal-day-label{text-align:center;font-size:10px;color:#4a4540;padding:4px 0;text-transform:uppercase;letter-spacing:0.5px}
+.cal-weeks{display:flex;flex-direction:column;gap:2px}
+.cal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-cell{min-height:52px;border-radius:3px;padding:4px;border:1px solid #1e1c18;background:#1a1814;cursor:default;position:relative}
+.cal-cell.weekend{background:#161410;opacity:0.7}
+.cal-cell.empty{border:none;background:none}
+.cal-cell.outside-range{opacity:0.3}
+.cal-num{font-size:11px;color:#4a4540}
+.cal-cell.has-conflicts .cal-num{color:#d4cfc4;font-weight:600}
+.conflict-bar{height:3px;border-radius:2px;margin-top:4px}
+.conflict-count{font-size:10px;color:#6b6560;margin-top:2px}
+.cal-cell:hover:not(.empty){border-color:#2a2520}
+
+/* Tooltip */
+.tooltip{position:fixed;background:#1a1814;border:1px solid #c9a84c;border-radius:4px;padding:10px 12px;font-size:13px;max-width:220px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,0.6);pointer-events:none;display:none;font-family:'Crimson Text',serif}
+.tooltip-title{font-weight:600;margin-bottom:6px;color:#c9a84c;font-size:13px}
+.tooltip-name{color:#8a8480;padding:2px 0;border-bottom:1px solid #2a2520}
+.tooltip-name:last-child{border-bottom:none}
+
+/* Divider ornament */
+.ornament{text-align:center;color:#2a2520;font-size:18px;margin:0.5rem 0 1.5rem;letter-spacing:8px}
+</style>
+</head>
+<body>
+<h1>The Addams Family</h1>
+<div class="subtitle">casting conflict tracker &mdash; youth summer production &bull; PPT 2026</div>
+
+<div id="error-box" class="error" style="display:none"></div>
+<div class="last-updated" id="last-updated"></div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('table')">Conflict Table</button>
+  <button class="tab" onclick="switchTab('calendar')">Calendar View</button>
+  <button class="refresh-btn" onclick="loadData()">&#8635; Refresh</button>
+</div>
+
+<div id="view-table" class="view active">
+  <div id="loading-table" class="loading">Summoning audition data...</div>
+  <div id="table-content" style="display:none">
+    <div class="summary-row">
+      <div class="sum-card"><div class="sum-label">Total</div><div class="sum-val" id="s-total">--</div></div>
+      <div class="sum-card"><div class="sum-label">No conflicts</div><div class="sum-val green" id="s-none">--</div></div>
+      <div class="sum-card"><div class="sum-label">Minor</div><div class="sum-val amber" id="s-minor">--</div></div>
+      <div class="sum-card"><div class="sum-label">Major</div><div class="sum-val red" id="s-major">--</div></div>
+      <div class="sum-card"><div class="sum-label">TBD</div><div class="sum-val blue" id="s-tbd">--</div></div>
+    </div>
+    <div class="search-bar">
+      <input id="search" placeholder="Search by name..." oninput="renderTable()">
+      <div class="filter-btns">
+        <button class="fbtn active" onclick="setFilter('all',this)">All</button>
+        <button class="fbtn" onclick="setFilter('none',this)">Clear</button>
+        <button class="fbtn" onclick="setFilter('minor',this)">Minor</button>
+        <button class="fbtn" onclick="setFilter('major',this)">Major</button>
+        <button class="fbtn" onclick="setFilter('tbd',this)">TBD</button>
+      </div>
+    </div>
+
+    <!-- Desktop table -->
+    <div class="tbl-wrap">
+      <table>
+        <colgroup><col class="c-name"><col class="c-age"><col class="c-level"><col class="c-conflict"><col class="c-roles"></colgroup>
+        <thead><tr>
+          <th>Name</th><th>Age</th><th>Level</th><th>Conflicts</th><th>Role preferences</th>
+        </tr></thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Mobile cards -->
+    <div class="card-list" id="card-list"></div>
+  </div>
+</div>
+
+<div id="view-calendar" class="view">
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#8a3a2a"></div>5+ conflicts</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#c9a84c"></div>3-4 conflicts</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#5a8a4a"></div>1-2 conflicts</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2a2520"></div>Weekend</div>
+  </div>
+  <div id="cal-container"></div>
+</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-title" id="tt-title"></div>
+  <div id="tt-names"></div>
+</div>
+
+<script>
+const SHEET_ID = '1qInBL2YVfpI_opYZ6-woEhp0k8yorfmV3i4J04CN7wY';
+const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
+const ROLES = ['Gomez Addams','Morticia Addams','Wednesday Addams','Puggsley Addams','Uncle Fester','Grandmama','Lurch','Ancestor(s)','Lucas Beineke','Alice Beineke','Mal Beineke','Any Role'];
+const ROLE_SHORT = ['Gomez','Morticia','Wednesday','Puggsley','Fester','Grandmama','Lurch','Ancestor','Lucas','Alice','Mal','Any'];
+
+let DATA = [];
+let filterLevel = 'all';
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuote = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuote) {
+      if (ch === '"' && text[i+1] === '"') { field += '"'; i++; }
+      else if (ch === '"') { inQuote = false; }
+      else { field += ch; }
+    } else {
+      if (ch === '"') { inQuote = true; }
+      else if (ch === ',') { row.push(field); field = ''; }
+      else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (ch === '\r') {}
+      else { field += ch; }
+    }
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function classifyConflict(text) {
+  const t = text.toLowerCase().trim();
+  if (!t || t === 'no' || t === 'none' || t === 'nope!' || t === 'nope' || t === 'n/a' || t === 'no conflicts' || t.startsWith('no conflict') || t.startsWith('softball on weekends') || t.startsWith('work (can') || (t.includes('class') && t.includes('4:20') && !t.includes('june') && !t.includes('july'))) return 'none';
+  if (t.includes('work') && (t.includes('flexible') || t.includes('tbd') || t === 'work')) return 'tbd';
+  if (t.includes('tbd') || t.includes('not sure') || t.includes('not 100') || t.includes('finaliz') || t.includes('will email') || t.includes('still undecided') || t.includes('arclight') || t.includes('not for now') || t.includes('nothing specific') || t.includes('likely just one') || t.includes('simply broadway')) return 'tbd';
+  const hasRange = /\w+\s+\d+\s*[-–]\s*\w*\s*\d+/.test(text) || /\d+\s*[-–]\s*\d+\s*(days|weeks)/.test(t) || text.match(/\d+ weeks/i);
+  const wordCount = t.split(/\s+/).length;
+  if (hasRange || wordCount > 8) return 'major';
+  return 'minor';
+}
+
+function parseRoles(row, headers) {
+  const roles = [];
+  ROLES.forEach((role, i) => {
+    const hIdx = headers.findIndex(h => h.includes(role));
+    if (hIdx === -1) return;
+    const val = (row[hIdx] || '').trim();
+    if (val === 'First Choice') roles.unshift(ROLE_SHORT[i] + ' (1st)');
+    else if (val === 'Second Choice') roles.push(ROLE_SHORT[i] + ' (2nd)');
+    else if (val === 'Third Choice') roles.push(ROLE_SHORT[i] + ' (3rd)');
+    else if (val === 'Would Accept') roles.push(ROLE_SHORT[i]);
+  });
+  return roles;
+}
+
+function calcAge(dob) {
+  if (!dob) return '--';
+  const d = new Date(dob), now = new Date('2026-04-18');
+  if (isNaN(d)) return '--';
+  let age = now.getFullYear() - d.getFullYear();
+  if (now < new Date(now.getFullYear(), d.getMonth(), d.getDate())) age--;
+  return age > 0 ? age : '--';
+}
+
+async function loadData() {
+  document.getElementById('loading-table').style.display = 'block';
+  document.getElementById('table-content').style.display = 'none';
+  document.getElementById('error-box').style.display = 'none';
+  try {
+    const resp = await fetch(CSV_URL + '&cachebust=' + Date.now());
+    if (!resp.ok) throw new Error('Could not fetch sheet (status ' + resp.status + '). Make sure the sheet is shared publicly.');
+    const text = await resp.text();
+    const rows = parseCSV(text);
+    if (rows.length < 2) throw new Error('No data found in sheet.');
+    const headers = rows[0];
+    const nameIdx = headers.findIndex(h => h.toLowerCase().includes('name') && !h.toLowerCase().includes('parent') && !h.toLowerCase().includes('email'));
+    const dobIdx = headers.findIndex(h => h.toLowerCase().includes('birth'));
+    const conflictIdx = headers.findIndex(h => h.toLowerCase().includes('conflicts'));
+    const emailIdx = headers.findIndex(h => h.toLowerCase().includes('email') && !h.toLowerCase().includes('parent'));
+    const seen = new Map();
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length < 3) continue;
+      const email = (row[emailIdx] || '').trim().toLowerCase();
+      const name = (row[nameIdx] || '').trim();
+      if (!name) continue;
+      seen.set(email || name, { row, name, dob: row[dobIdx] || '', conflictRaw: (row[conflictIdx] || '').trim(), roles: parseRoles(row, headers) });
+    }
+    DATA = Array.from(seen.values()).map(d => ({
+      name: d.name, dob: d.dob, conflictRaw: d.conflictRaw,
+      level: classifyConflict(d.conflictRaw), roles: d.roles, dates: extractDates(d.conflictRaw)
+    }));
+    document.getElementById('last-updated').textContent = 'Last summoned: ' + new Date().toLocaleString();
+    document.getElementById('loading-table').style.display = 'none';
+    document.getElementById('table-content').style.display = 'block';
+    renderTable();
+    buildCalendar();
+  } catch(e) {
+    document.getElementById('loading-table').style.display = 'none';
+    document.getElementById('error-box').textContent = 'Error: ' + e.message;
+    document.getElementById('error-box').style.display = 'block';
+  }
+}
+
+function extractDates(text) {
+  const dates = [];
+  const year = 2026;
+  const months = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,july:6,jul:6,aug:7,august:7,june:5,may:4};
+  const rangeRe = /\b(jan|feb|mar|apr|may|jun|jul|july|aug|june|august)\w*\.?\s+(\d{1,2})\s*[-–]\s*(?:(jan|feb|mar|apr|may|jun|jul|july|aug|june|august)\w*\.?\s+)?(\d{1,2})/gi;
+  let m;
+  while ((m = rangeRe.exec(text)) !== null) {
+    const sm = months[m[1].toLowerCase().slice(0,3)], sd = parseInt(m[2]);
+    const em = m[3] ? months[m[3].toLowerCase().slice(0,3)] : sm, ed = parseInt(m[4]);
+    for (let d = new Date(year,sm,sd); d <= new Date(year,em,ed); d.setDate(d.getDate()+1))
+      if (!isWeekend(d)) dates.push(fmtDate(new Date(d)));
+  }
+  const singleRe = /\b(jan|feb|mar|apr|may|jun|jul|july|aug|june|august)\w*\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b/gi;
+  while ((m = singleRe.exec(text)) !== null) {
+    const mo = months[m[1].toLowerCase().slice(0,3)], day = parseInt(m[2]);
+    const d = new Date(year, mo, day);
+    if (!isWeekend(d)) { const k = fmtDate(d); if (!dates.includes(k)) dates.push(k); }
+  }
+  return [...new Set(dates)];
+}
+
+function fmtDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function isWeekend(d) { return d.getDay()===0||d.getDay()===6; }
+function inRange(d) { return d>=new Date('2026-05-25')&&d<=new Date('2026-08-09'); }
+
+const LEVEL_LABEL = {none:'No conflicts',minor:'Minor',major:'Major',tbd:'TBD/Flexible'};
+const LEVEL_CLASS = {none:'badge-none',minor:'badge-minor',major:'badge-major',tbd:'badge-tbd'};
+
+function setFilter(level, btn) {
+  filterLevel = level;
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+function renderTable() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const rows = DATA.filter(d => d.name.toLowerCase().includes(q) && (filterLevel==='all'||d.level===filterLevel));
+  const counts = {none:0,minor:0,major:0,tbd:0};
+  DATA.forEach(d => counts[d.level] = (counts[d.level]||0)+1);
+  document.getElementById('s-total').textContent = DATA.length;
+  document.getElementById('s-none').textContent = counts.none||0;
+  document.getElementById('s-minor').textContent = counts.minor||0;
+  document.getElementById('s-major').textContent = counts.major||0;
+  document.getElementById('s-tbd').textContent = counts.tbd||0;
+
+  // Desktop table
+  document.getElementById('tbl-body').innerHTML = rows.map(d => `
+    <tr>
+      <td style="font-weight:600;color:#d4cfc4">${d.name}</td>
+      <td style="color:#6b6560">${calcAge(d.dob)}</td>
+      <td><span class="badge ${LEVEL_CLASS[d.level]}">${LEVEL_LABEL[d.level]}</span></td>
+      <td><div class="conflict-text">${d.conflictRaw||'--'}</div></td>
+      <td><div class="conflict-text" style="color:#a09890">${d.roles.length?d.roles.join(', '):'--'}</div></td>
+    </tr>`).join('');
+
+  // Mobile cards
+  document.getElementById('card-list').innerHTML = rows.map(d => `
+    <div class="person-card">
+      <div class="card-header">
+        <div><span class="card-name">${d.name}</span><span class="card-age">${calcAge(d.dob) !== '--' ? ', age ' + calcAge(d.dob) : ''}</span></div>
+        <span class="badge ${LEVEL_CLASS[d.level]}">${LEVEL_LABEL[d.level]}</span>
+      </div>
+      ${d.conflictRaw ? `<div class="card-label">Conflicts</div><div class="card-body">${d.conflictRaw}</div>` : ''}
+      ${d.roles.length ? `<div class="card-label">Role preferences</div><div class="card-roles">${d.roles.join(' &bull; ')}</div>` : ''}
+    </div>`).join('');
+}
+
+function switchTab(t) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase().includes(t==='table'?'table':'cal')));
+  document.getElementById('view-table').classList.toggle('active', t==='table');
+  document.getElementById('view-calendar').classList.toggle('active', t==='calendar');
+}
+
+function buildCalendar() {
+  const cmap = {};
+  DATA.forEach(d => d.dates.forEach(dt => { if(!cmap[dt]) cmap[dt]=[]; cmap[dt].push(d.name); }));
+  const months = [{y:2026,m:4,label:'May 2026'},{y:2026,m:5,label:'June 2026'},{y:2026,m:6,label:'July 2026'},{y:2026,m:7,label:'August 2026'}];
+  const dayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  document.getElementById('cal-container').innerHTML = months.map(({y,m,label}) => {
+    const firstDay = new Date(y,m,1).getDay(), daysInMonth = new Date(y,m+1,0).getDate();
+    const cells = [];
+    for(let i=0;i<firstDay;i++) cells.push('<div class="cal-cell empty"></div>');
+    for(let day=1;day<=daysInMonth;day++) {
+      const d = new Date(y,m,day), key = fmtDate(d);
+      const conflicts = cmap[key]||[], n = conflicts.length;
+      const we = isWeekend(d), ir = inRange(d);
+      let barColor = '';
+      if(!we&&ir&&n>0) barColor = n>=5?'#8a3a2a':n>=3?'#c9a84c':'#5a8a4a';
+      const cls = ['cal-cell',we?'weekend':'',!ir?'outside-range':'',n>0&&!we?'has-conflicts':''].filter(Boolean).join(' ');
+      const namesAttr = conflicts.join('||').replace(/'/g,"&#39;");
+      cells.push(`<div class="${cls}"${n>0&&!we?` onmouseenter="showTip(event,'${key}','${namesAttr}')" onmouseleave="hideTip()"`:''}>
+        <div class="cal-num">${day}</div>
+        ${barColor?`<div class="conflict-bar" style="background:${barColor}"></div>`:''}
+        ${n>0&&!we?`<div class="conflict-count">${n} conflict${n>1?'s':''}</div>`:''}
+      </div>`);
+    }
+    const weeks = [];
+    for(let i=0;i<cells.length;i+=7) weeks.push(`<div class="cal-week">${cells.slice(i,i+7).join('')}</div>`);
+    return `<div class="cal-month">
+      <div class="cal-month-title">${label}</div>
+      <div class="cal-header">${dayLabels.map(dl=>`<div class="cal-day-label">${dl}</div>`).join('')}</div>
+      <div class="cal-weeks">${weeks.join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function showTip(e,key,names) {
+  const list = names.split('||').filter(Boolean);
+  if(!list.length) return;
+  const [y,m,d] = key.split('-');
+  const label = new Date(+y,+m-1,+d).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  document.getElementById('tt-title').textContent = label;
+  document.getElementById('tt-names').innerHTML = `<div style="font-size:11px;color:#4a4540;margin-bottom:4px">${list.length} conflict${list.length>1?'s':''}</div>` + list.map(n=>`<div class="tooltip-name">${n}</div>`).join('');
+  const tt = document.getElementById('tooltip');
+  tt.style.display = 'block';
+  tt.style.left = (e.clientX+14)+'px';
+  tt.style.top = (e.clientY+14)+'px';
+}
+function hideTip() { document.getElementById('tooltip').style.display='none'; }
+
+loadData();
+</script>
+</body>
+</html>
