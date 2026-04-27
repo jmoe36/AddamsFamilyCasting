@@ -323,8 +323,36 @@ function parseCSV(text) {
   return rows;
 }
 
+// ── Time-aware conflict filtering ─────────────────────────────────────────────
+// Splits conflict text on semicolons/newlines and removes segments whose
+// time range (e.g. "8am-12pm") doesn't overlap the 6pm–9pm rehearsal window.
+// Segments with no time qualifier are kept (conservative default).
+
+function parseTime(str) {
+  const m = str.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i);
+  if (!m) return null;
+  let h = parseInt(m[1]), min = parseInt(m[2] || '0'), ampm = m[3].toLowerCase();
+  if (ampm === 'pm' && h !== 12) h += 12;
+  if (ampm === 'am' && h === 12) h = 0;
+  return h * 60 + min;
+}
+
+function timeOverlapsRehearsal(str) {
+  const m = str.match(/(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s*[-–]\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm))/i);
+  if (!m) return true; // no time found — keep the segment
+  const start = parseTime(m[1]), end = parseTime(m[2]);
+  if (start === null || end === null) return true;
+  const rStart = 18 * 60, rEnd = 21 * 60; // 6pm–9pm
+  return start < rEnd && end > rStart;
+}
+
+function filterDaytimeSegments(text) {
+  return text.split(/[;\n]/).filter(seg => timeOverlapsRehearsal(seg)).join('; ').trim();
+}
+
 function classifyConflict(text) {
-  const t = text.toLowerCase().trim();
+  const filtered = filterDaytimeSegments(text);
+  const t = filtered.toLowerCase().trim();
   if (!t || t === 'no' || t === 'none' || t === 'nope!' || t === 'nope' || t === 'n/a' || t === 'no conflicts' || t.startsWith('no conflict') || t.startsWith('softball on weekends') || t.startsWith('work (can') || (t.includes('class') && t.includes('4:20') && !t.includes('june') && !t.includes('july'))) return 'none';
   if (t.includes('work') && (t.includes('flexible') || t.includes('tbd') || t === 'work')) return 'tbd';
   if (t.includes('tbd') || t.includes('not sure') || t.includes('not 100') || t.includes('finaliz') || t.includes('will email') || t.includes('still undecided') || t.includes('arclight') || t.includes('not for now') || t.includes('nothing specific') || t.includes('likely just one') || t.includes('simply broadway')) return 'tbd';
@@ -358,6 +386,7 @@ function calcAge(dob) {
 }
 
 function extractDates(text) {
+  text = filterDaytimeSegments(text);
   const dates = [];
   const year = 2026;
   const months = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,july:6,jul:6,aug:7,august:7,june:5};
