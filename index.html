@@ -350,16 +350,32 @@ function filterDaytimeSegments(text) {
   return text.split(/[;\n]/).filter(seg => timeOverlapsRehearsal(seg)).join('; ').trim();
 }
 
-function classifyConflict(text) {
+function classifyConflict(text, misses) {
+  // 1. If we parsed real dates, let the miss count decide.
+  if (misses > 0) {
+    return misses <= 2 ? 'minor' : 'major';
+  }
+
+  // 2. misses === 0 — fall back to text analysis.
   const filtered = filterDaytimeSegments(text);
   const t = filtered.toLowerCase().trim();
-  if (!t || t === 'no' || t === 'none' || t === 'nope!' || t === 'nope' || t === 'n/a' || t === 'no conflicts' || t.startsWith('no conflict') || t.startsWith('softball on weekends') || t.startsWith('work (can') || (t.includes('class') && t.includes('4:20') && !t.includes('june') && !t.includes('july'))) return 'none';
-  if (t.includes('work') && (t.includes('flexible') || t.includes('tbd') || t === 'work')) return 'tbd';
-  if (t.includes('tbd') || t.includes('not sure') || t.includes('not 100') || t.includes('finaliz') || t.includes('will email') || t.includes('still undecided') || t.includes('arclight') || t.includes('not for now') || t.includes('nothing specific') || t.includes('likely just one') || t.includes('simply broadway')) return 'tbd';
-  const hasRange = /\w+\s+\d+\s*[-–]\s*\w*\s*\d+/.test(text) || /\d+\s*[-–]\s*\d+\s*(days|weeks)/.test(t) || text.match(/\d+ weeks/i);
-  const wordCount = t.split(/\s+/).length;
-  if (hasRange || wordCount > 8) return 'major';
-  return 'minor';
+
+  // Nothing left after filtering daytime-only segments → no real conflict.
+  if (!t) return 'none';
+
+  // Explicit "no conflicts" answers.
+  if (/^(no|none|nope!?|n\/a|no conflicts?)$/i.test(t) || t.startsWith('no conflict')) return 'none';
+
+  // Weekend-only activities don't touch Mon–Fri rehearsals.
+  if (/\b(weekends?|saturdays?|sundays?)\b/.test(t) &&
+      !/\b(monday|tuesday|wednesday|thursday|friday|mon\b|tue\b|wed\b|thu\b|fri\b)/.test(t)) return 'none';
+
+  // Explicitly vague or unresolved.
+  if (/\btbd\b|not sure|not 100|finaliz|will email|still undecided|not for now|nothing specific|simply broadway|arclight/i.test(t)) return 'tbd';
+  if (/\bwork\b/.test(t) && /flexible|tbd/i.test(t)) return 'tbd';
+
+  // Text present but no parseable dates → can't confirm either way.
+  return 'tbd';
 }
 
 function parseRoles(row, headers) {
@@ -444,7 +460,7 @@ async function loadData() {
     DATA = Array.from(seen.values()).map(d => {
       const dates  = extractDates(d.conflictRaw);
       const misses = rehearsalMisses(dates);
-      return { id: d.id, name: d.name, dob: d.dob, age: calcAge(d.dob), conflictRaw: d.conflictRaw, level: classifyConflict(d.conflictRaw), roles: d.roles, dates, misses };
+      return { id: d.id, name: d.name, dob: d.dob, age: calcAge(d.dob), conflictRaw: d.conflictRaw, level: classifyConflict(d.conflictRaw, misses), roles: d.roles, dates, misses };
     });
     document.getElementById('last-updated').textContent = 'Last summoned: ' + new Date().toLocaleString();
     document.getElementById('loading-table').style.display = 'none';
