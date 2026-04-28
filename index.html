@@ -151,6 +151,16 @@ tbody tr.is-flagged td{background:#1c1410}
 .mbtn.primary:hover{background:#d4b85c}
 .mbtn.danger{color:#c05a4a;border-color:#2a1010}
 .mbtn.danger:hover{background:#2a1010;border-color:#8a3a2a}
+
+/* Threshold legend */
+.threshold-legend{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem}
+.tleg-item{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:3px;font-size:11px;letter-spacing:0.3px;border:1px solid transparent}
+.tleg-none{background:#1a2a1a;border-color:#2a3a2a;color:#5a8a4a}
+.tleg-minor{background:#2a2010;border-color:#3a3010;color:#c9a84c}
+.tleg-moderate{background:#2a1a08;border-color:#3a2810;color:#c07838}
+.tleg-major{background:#2a1010;border-color:#3a1818;color:#c05a4a}
+.tleg-tbd{background:#10182a;border-color:#18283a;color:#3a6a8a}
+.tleg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -177,6 +187,13 @@ tbody tr.is-flagged td{background:#1c1410}
       <div class="sum-card"><div class="sum-label">Major</div><div class="sum-val red" id="s-major">--</div></div>
       <div class="sum-card"><div class="sum-label">TBD</div><div class="sum-val blue" id="s-tbd">--</div></div>
       <div class="sum-card"><div class="sum-label">Flagged</div><div class="sum-val purple" id="s-flagged">--</div></div>
+    </div>
+    <div class="threshold-legend">
+      <div class="tleg-item tleg-none"><div class="tleg-dot" style="background:#5a8a4a"></div>No conflicts &mdash; 0 days</div>
+      <div class="tleg-item tleg-minor"><div class="tleg-dot" style="background:#c9a84c"></div>Minor &mdash; 1&ndash;2 days</div>
+      <div class="tleg-item tleg-moderate"><div class="tleg-dot" style="background:#c07838"></div>Moderate &mdash; 3&ndash;5 days</div>
+      <div class="tleg-item tleg-major"><div class="tleg-dot" style="background:#c05a4a"></div>Major &mdash; 6+ days</div>
+      <div class="tleg-item tleg-tbd"><div class="tleg-dot" style="background:#3a6a8a"></div>TBD &mdash; unconfirmed</div>
     </div>
     <div class="search-bar">
       <input id="search" placeholder="Search by name..." oninput="renderTable()">
