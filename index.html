@@ -161,6 +161,34 @@ tbody tr.is-flagged td{background:#1c1410}
 .tleg-major{background:#2a1010;border-color:#3a1818;color:#c05a4a}
 .tleg-tbd{background:#10182a;border-color:#18283a;color:#3a6a8a}
 .tleg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* ROLES TAB */
+.roles-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.5rem}
+@media(max-width:700px){.roles-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:420px){.roles-grid{grid-template-columns:1fr}}
+.role-card{background:#1a1814;border:1px solid #2a2520;border-radius:4px;padding:12px 14px;cursor:pointer;transition:border-color 0.15s,background 0.15s;user-select:none}
+.role-card:hover{border-color:#4a4030;background:#1e1c18}
+.role-card.selected{border-color:#c9a84c;background:#1e1c14}
+.role-card-name{font-size:15px;font-weight:600;color:#d4cfc4;margin-bottom:6px}
+.role-card-stats{display:flex;gap:10px;font-size:12px;color:#6b6560}
+.role-stat-val{font-weight:600;color:#a09890}
+.role-stat-val.gold{color:#c9a84c}
+.role-card-warn{font-size:11px;color:#8a5a2a;margin-top:6px;letter-spacing:0.2px}
+.role-candidates{background:#141210;border:1px solid #2a2520;border-radius:4px;padding:0;margin-bottom:1.5rem;overflow:hidden}
+.role-candidates-header{padding:10px 14px;background:#1a1814;border-bottom:1px solid #2a2520;font-size:13px;color:#c9a84c;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+.role-candidates-close{background:none;border:none;color:#4a4540;cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
+.role-candidates-close:hover{color:#d4cfc4}
+.cand-row{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid #1e1c18;font-size:13px;flex-wrap:wrap}
+.cand-row:last-child{border-bottom:none}
+.cand-row:hover{background:#1a1814}
+.cand-name{font-weight:600;color:#d4cfc4;min-width:120px}
+.badge-pref-1{background:#2a2008;color:#c9a84c;border:1px solid #3a3010;padding:2px 7px;border-radius:2px;font-size:11px;font-weight:600;letter-spacing:0.3px}
+.badge-pref-2{background:#1a1e10;color:#7a9a5a;border:1px solid #2a3018;padding:2px 7px;border-radius:2px;font-size:11px;font-weight:600;letter-spacing:0.3px}
+.badge-pref-3{background:#10181e;color:#5a7a8a;border:1px solid #18282e;padding:2px 7px;border-radius:2px;font-size:11px;font-weight:600;letter-spacing:0.3px}
+.badge-pref-wa{background:#1e1a18;color:#6b6560;border:1px solid #2a2520;padding:2px 7px;border-radius:2px;font-size:11px;letter-spacing:0.3px}
+.no-flex-tag{font-size:10px;color:#5a4a38;letter-spacing:0.4px;font-style:italic}
+.cand-miss{font-size:12px;color:#6b6560;margin-left:auto}
+.roles-empty{padding:2rem;text-align:center;color:#4a4540;font-size:14px;font-style:italic}
 </style>
 </head>
 <body>
@@ -173,6 +201,7 @@ tbody tr.is-flagged td{background:#1c1410}
 <div class="tabs">
   <button class="tab active" onclick="switchTab('table')">Conflict Table</button>
   <button class="tab" onclick="switchTab('calendar')">Calendar View</button>
+  <button class="tab" onclick="switchTab('roles')">Roles</button>
   <button class="refresh-btn" onclick="loadData()">&#8635; Refresh</button>
 </div>
 
@@ -240,7 +269,16 @@ tbody tr.is-flagged td{background:#1c1410}
   <div id="cal-container"></div>
 </div>
 
-<div class="tooltip" id="tooltip">
+<div id="view-roles" class="view">
+  <div id="roles-grid" class="roles-grid"></div>
+  <div id="role-candidates" class="role-candidates" style="display:none">
+    <div class="role-candidates-header">
+      <span id="role-cand-title"></span>
+      <button class="role-candidates-close" onclick="closeRoleCandidates()">&#10005;</button>
+    </div>
+    <div id="role-cand-list"></div>
+  </div>
+</div>
   <div class="tooltip-title" id="tt-title"></div>
   <div id="tt-names"></div>
 </div>
@@ -424,16 +462,31 @@ function classifyConflict(text, misses) {
 
 function parseRoles(row, headers) {
   const roles = [];
+  const rolePrefs = {}; // role full name → pref level: '1st'|'2nd'|'3rd'|'wa'
+  let anyRole = false;
   ROLES.forEach((role, i) => {
     const hIdx = headers.findIndex(h => h.includes(role));
     if (hIdx === -1) return;
     const val = (row[hIdx] || '').trim();
-    if (val === 'First Choice') roles.unshift(ROLE_SHORT[i] + ' (1st)');
-    else if (val === 'Second Choice') roles.push(ROLE_SHORT[i] + ' (2nd)');
-    else if (val === 'Third Choice') roles.push(ROLE_SHORT[i] + ' (3rd)');
-    else if (val === 'Would Accept') roles.push(ROLE_SHORT[i]);
+    if (val === 'First Choice') {
+      roles.unshift(ROLE_SHORT[i] + ' (1st)');
+      rolePrefs[role] = '1st';
+      if (role === 'Any Role') anyRole = true;
+    } else if (val === 'Second Choice') {
+      roles.push(ROLE_SHORT[i] + ' (2nd)');
+      rolePrefs[role] = '2nd';
+      if (role === 'Any Role') anyRole = true;
+    } else if (val === 'Third Choice') {
+      roles.push(ROLE_SHORT[i] + ' (3rd)');
+      rolePrefs[role] = '3rd';
+      if (role === 'Any Role') anyRole = true;
+    } else if (val === 'Would Accept') {
+      roles.push(ROLE_SHORT[i]);
+      rolePrefs[role] = 'wa';
+      if (role === 'Any Role') anyRole = true;
+    }
   });
-  return roles;
+  return { roles, rolePrefs, anyRole };
 }
 
 function calcAge(dob) {
@@ -499,18 +552,19 @@ async function loadData() {
       const name  = (row[nameIdx]  || '').trim();
       if (!name) continue;
       const id = email || name;
-      seen.set(id, { id, name, dob: row[dobIdx]||'', conflictRaw: (row[conflictIdx]||'').trim(), roles: parseRoles(row, headers) });
+      seen.set(id, { id, name, dob: row[dobIdx]||'', conflictRaw: (row[conflictIdx]||'').trim(), ...parseRoles(row, headers) });
     }
     DATA = Array.from(seen.values()).map(d => {
       const dates  = extractDates(d.conflictRaw);
       const misses = rehearsalMisses(dates);
-      return { id: d.id, name: d.name, dob: d.dob, age: calcAge(d.dob), conflictRaw: d.conflictRaw, level: classifyConflict(d.conflictRaw, misses), roles: d.roles, dates, misses };
+      return { id: d.id, name: d.name, dob: d.dob, age: calcAge(d.dob), conflictRaw: d.conflictRaw, level: classifyConflict(d.conflictRaw, misses), roles: d.roles, rolePrefs: d.rolePrefs, anyRole: d.anyRole, dates, misses };
     });
     document.getElementById('last-updated').textContent = 'Last summoned: ' + new Date().toLocaleString();
     document.getElementById('loading-table').style.display = 'none';
     document.getElementById('table-content').style.display = 'block';
     renderTable();
     buildCalendar();
+    if (document.getElementById('view-roles').classList.contains('active')) buildRolesTab();
   } catch(e) {
     document.getElementById('loading-table').style.display = 'none';
     document.getElementById('error-box').textContent = 'Error: ' + e.message;
@@ -632,9 +686,14 @@ function renderTable() {
 // ── Tab switching ─────────────────────────────────────────────────────────────
 
 function switchTab(t) {
-  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase().includes(t==='table'?'table':'cal')));
-  document.getElementById('view-table').classList.toggle('active', t==='table');
-  document.getElementById('view-calendar').classList.toggle('active', t==='calendar');
+  const tabs = document.querySelectorAll('.tab');
+  tabs[0].classList.toggle('active', t === 'table');
+  tabs[1].classList.toggle('active', t === 'calendar');
+  tabs[2].classList.toggle('active', t === 'roles');
+  document.getElementById('view-table').classList.toggle('active', t === 'table');
+  document.getElementById('view-calendar').classList.toggle('active', t === 'calendar');
+  document.getElementById('view-roles').classList.toggle('active', t === 'roles');
+  if (t === 'roles' && DATA.length) buildRolesTab();
 }
 
 // ── Calendar ──────────────────────────────────────────────────────────────────
@@ -685,6 +744,90 @@ function showTip(e,key,names) {
   tt.style.top  = (e.clientY+14)+'px';
 }
 function hideTip() { document.getElementById('tooltip').style.display='none'; }
+
+// ── Roles tab ─────────────────────────────────────────────────────────────────
+
+const CAST_ROLES = ['Gomez Addams','Morticia Addams','Wednesday Addams','Puggsley Addams','Uncle Fester','Grandmama','Lurch','Ancestor(s)','Lucas Beineke','Alice Beineke','Mal Beineke'];
+const CAST_ROLE_SHORT = ['Gomez','Morticia','Wednesday','Puggsley','Fester','Grandmama','Lurch','Ancestor','Lucas','Alice','Mal'];
+
+let selectedRole = null;
+
+function buildRolesTab() {
+  const PREF_ORDER = {'1st':0,'2nd':1,'3rd':2,'wa':3};
+  document.getElementById('role-candidates').style.display = 'none';
+  selectedRole = null;
+
+  const grid = document.getElementById('roles-grid');
+  grid.innerHTML = CAST_ROLES.map((role, i) => {
+    const interested = DATA.filter(d => d.rolePrefs && d.rolePrefs[role]);
+    const firstChoice = interested.filter(d => d.rolePrefs[role] === '1st').length;
+    const low = interested.length < 3;
+    return `<div class="role-card" id="rcard-${i}" onclick="selectRole(${i})">
+      <div class="role-card-name">${CAST_ROLE_SHORT[i]}</div>
+      <div class="role-card-stats">
+        <span><span class="role-stat-val gold">${interested.length}</span> interested</span>
+        <span><span class="role-stat-val">${firstChoice}</span> 1st choice</span>
+      </div>
+      ${low ? `<div class="role-card-warn">&#9888; fewer than 3 interested</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function selectRole(i) {
+  const role = CAST_ROLES[i];
+  const shortName = CAST_ROLE_SHORT[i];
+
+  // Toggle off if same card clicked again
+  if (selectedRole === i) {
+    closeRoleCandidates();
+    return;
+  }
+
+  // Update card selection state
+  document.querySelectorAll('.role-card').forEach((el, j) => el.classList.toggle('selected', j === i));
+  selectedRole = i;
+
+  const PREF_ORDER = {'1st':0,'2nd':1,'3rd':2,'wa':3};
+  const PREF_LABEL = {'1st':'1st Choice','2nd':'2nd Choice','3rd':'3rd Choice','wa':'Would Accept'};
+  const PREF_BADGE = {'1st':'badge-pref-1','2nd':'badge-pref-2','3rd':'badge-pref-3','wa':'badge-pref-wa'};
+
+  const candidates = DATA
+    .filter(d => d.rolePrefs && d.rolePrefs[role])
+    .sort((a, b) => PREF_ORDER[a.rolePrefs[role]] - PREF_ORDER[b.rolePrefs[role]] || a.name.localeCompare(b.name));
+
+  document.getElementById('role-cand-title').textContent = shortName + ' — ' + candidates.length + ' candidate' + (candidates.length !== 1 ? 's' : '');
+
+  if (!candidates.length) {
+    document.getElementById('role-cand-list').innerHTML = '<div class="roles-empty">No one expressed interest in this role yet.</div>';
+  } else {
+    document.getElementById('role-cand-list').innerHTML = candidates.map(d => {
+      const pref = d.rolePrefs[role];
+      const noFlex = !d.anyRole ? '<span class="no-flex-tag">no flex</span>' : '';
+      const flagged = FLAGS[d.id]?.flagged;
+      const flagIcon = flagged ? ' <span style="color:#c9a84c;font-size:11px">&#9873;</span>' : '';
+      return `<div class="cand-row">
+        <span class="cand-name">${esc(d.name)}${flagIcon}</span>
+        <span class="${PREF_BADGE[pref]}">${PREF_LABEL[pref]}</span>
+        ${noFlex}
+        <span class="cand-miss" style="margin-left:auto;display:flex;align-items:center;gap:6px">
+          ${missHTML(d)}
+          <span class="badge ${LEVEL_CLASS[d.level]}" style="font-size:11px">${LEVEL_LABEL[d.level]}</span>
+        </span>
+      </div>`;
+    }).join('');
+  }
+
+  const panel = document.getElementById('role-candidates');
+  panel.style.display = 'block';
+  // Scroll panel into view smoothly
+  setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+}
+
+function closeRoleCandidates() {
+  document.getElementById('role-candidates').style.display = 'none';
+  document.querySelectorAll('.role-card').forEach(el => el.classList.remove('selected'));
+  selectedRole = null;
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
